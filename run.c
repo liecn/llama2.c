@@ -244,7 +244,7 @@ float* forward(Transformer* transformer, int token, int pos) {
     // copy the token embedding into x
     float* content_row = w->token_embedding_table + token * dim;
     memcpy(x, content_row, dim*sizeof(*x));
-
+    // x: [1, dim]
     // forward all the layers
     for(unsigned long long l = 0; l < p->n_layers; l++) {
 
@@ -439,7 +439,7 @@ void safe_printf(char *piece) {
             return; // bad byte, don't print it
         }
     }
-    printf("%s", piece);
+    printf("%s\n", piece);
 }
 
 int str_lookup(char *str, TokenIndex *sorted_vocab, int vocab_size) {
@@ -729,11 +729,12 @@ long time_in_ms() {
 void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, char *prompt, int steps) {
     char *empty_prompt = "";
     if (prompt == NULL) { prompt = empty_prompt; }
-
+    fprintf(stderr,"before encode %s\n",prompt);
     // encode the (string) prompt into tokens sequence
     int num_prompt_tokens = 0;
     int* prompt_tokens = (int*)malloc((strlen(prompt)+3) * sizeof(int)); // +3 for '\0', ?BOS, ?EOS
     encode(tokenizer, prompt, 1, 0, prompt_tokens, &num_prompt_tokens);
+    fprintf(stderr,"after encode %d\n",num_prompt_tokens);
     if (num_prompt_tokens < 1) {
         fprintf(stderr, "something is wrong, expected at least 1 prompt token\n");
         exit(EXIT_FAILURE);
@@ -745,7 +746,7 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
     int token = prompt_tokens[0]; // kick off with the first token in the prompt
     int pos = 0;     // position in the sequence
     while (pos < steps) {
-
+        fprintf(stderr,"step:%d,%d\n",pos,token);
         // forward the transformer to get logits for the next token
         float* logits = forward(transformer, token, pos);
 
@@ -753,9 +754,11 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
         if (pos < num_prompt_tokens - 1) {
             // if we are still processing the input prompt, force the next prompt token
             next = prompt_tokens[pos + 1];
+            fprintf(stderr,"advance: %d\n",num_prompt_tokens);
         } else {
             // otherwise sample the next token from the logits
             next = sample(sampler, logits);
+            fprintf(stderr,"sample: %d\n",next);
         }
         pos++;
 
